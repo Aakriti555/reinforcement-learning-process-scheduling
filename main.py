@@ -1,5 +1,6 @@
 # main.py
 
+import pandas as pd
 from process import Process
 from scheduler.fcfs import fcfs
 from scheduler.sjf import sjf
@@ -8,13 +9,20 @@ from scheduler.priority import priority_scheduling
 from scheduler.rl_scheduler import RLScheduler
 from visualizer import plot_gantt_chart, print_process_metrics
 
-def get_sample_processes():
-    return [
-        Process(pid=1, arrival=0, burst=5, priority=10),
-        Process(pid=2, arrival=1, burst=4, priority=20),
-        Process(pid=3, arrival=2, burst=2, priority=30),
-        Process(pid=4, arrival=4, burst=1, priority=40),
+
+def load_processes_from_csv(file_path):
+    df = pd.read_csv(file_path)
+    processes = [
+        Process(
+            pid=int(row['pid']),
+            arrival=int(row['arrival']),
+            burst=int(row['burst']),
+            priority=int(row['priority'])
+        )
+        for _, row in df.iterrows()
     ]
+    return processes
+
 
 def main():
     print("Select Scheduling Algorithm:")
@@ -25,7 +33,7 @@ def main():
     print("5. Reinforcement Learning")
 
     choice = int(input("Enter choice number: "))
-    processes = get_sample_processes()
+    processes = load_processes_from_csv("data/rl_process_dataset_100.csv")
 
     if choice == 1:
         scheduled, gantt = fcfs(processes)
@@ -47,6 +55,7 @@ def main():
 
     print_process_metrics(scheduled)
     plot_gantt_chart(gantt, title=f"Scheduling Algorithm: {['FCFS', 'SJF', 'RR', 'Priority', 'RL'][choice-1]}")
+
 
 if __name__ == "__main__":
     main()

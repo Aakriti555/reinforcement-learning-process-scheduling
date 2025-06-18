@@ -8,5 +8,12 @@ class Process:
         self.start = None
         self.completion = None
 
+    def copy(self):
+        new_process = Process(self.pid, self.arrival, self.burst, self.priority)
+        new_process.remaining = self.remaining
+        new_process.start = self.start
+        new_process.completion = self.completion
+        return new_process
+
     def __repr__(self):
         return f"P{self.pid}(AT={self.arrival}, BT={self.burst}, PR={self.priority})"

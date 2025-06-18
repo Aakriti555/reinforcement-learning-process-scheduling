@@ -3,7 +3,7 @@ import numpy as np
 
 class RLScheduler:
     def __init__(self, processes, episodes=1000, alpha=0.1, gamma=0.9, epsilon=0.1):
-        self.processes = processes
+        self.original_processes = processes
         self.q_table = {}
         self.episodes = episodes
         self.alpha = alpha
@@ -12,6 +12,7 @@ class RLScheduler:
         self.actions = list(range(len(processes)))
 
     def get_state(self, time, remaining):
+        # State is current time and tuple of remaining burst times
         return (time, tuple(remaining))
 
     def choose_action(self, state):
@@ -25,15 +26,17 @@ class RLScheduler:
 
     def train(self):
         for ep in range(self.episodes):
+            # Create a fresh copy of processes for this episode
+            processes = [p.copy() for p in self.original_processes]
             time = 0
-            remaining = [p.burst for p in self.processes]
-            done = [False for _ in self.processes]
+            remaining = [p.remaining for p in processes]
+            done = [False for _ in processes]
 
             while not all(done):
                 state = self.get_state(time, remaining)
                 action = self.choose_action(state)
 
-                if done[action] or self.processes[action].arrival > time:
+                if done[action] or processes[action].arrival > time:
                     time += 1
                     continue
 
@@ -47,12 +50,16 @@ class RLScheduler:
                 if next_state not in self.q_table:
                     self.q_table[next_state] = np.zeros(len(self.actions))
 
-                self.q_table[state][action] += self.alpha * (reward + self.gamma * max(self.q_table[next_state]) - self.q_table[state][action])
+                self.q_table[state][action] += self.alpha * (
+                    reward + self.gamma * max(self.q_table[next_state]) - self.q_table[state][action]
+                )
 
     def schedule(self):
+        # Use a fresh copy for scheduling as well
+        processes = [p.copy() for p in self.original_processes]
         time = 0
-        remaining = [p.burst for p in self.processes]
-        done = [False for _ in self.processes]
+        remaining = [p.remaining for p in processes]
+        done = [False for _ in processes]
         gantt = []
 
         while not all(done):
@@ -62,11 +69,11 @@ class RLScheduler:
             else:
                 action = int(np.argmax(self.q_table[state]))
 
-            if done[action] or self.processes[action].arrival > time:
+            if done[action] or processes[action].arrival > time:
                 time += 1
                 continue
 
-            p = self.processes[action]
+            p = processes[action]
             if p.start is None:
                 p.start = time
             duration = remaining[action]
@@ -76,4 +83,4 @@ class RLScheduler:
             done[action] = True
             gantt.append((p.pid, p.start, p.completion))
 
-        return self.processes, gantt
+        return processes, gantt
