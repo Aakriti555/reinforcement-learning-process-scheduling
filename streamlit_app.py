@@ -43,7 +43,7 @@ def display_metrics_table(processes):
     st.dataframe(df.tail())
     return calculate_metrics(processes)
 
-def run_algorithm(algorithm, processes, quantum=2):
+def run_algorithm(algorithm, processes, quantum=6):
     if algorithm == "FCFS":
         return fcfs(processes)
     elif algorithm == "SJF":

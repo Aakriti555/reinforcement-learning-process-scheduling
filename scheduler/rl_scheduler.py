@@ -9,78 +9,86 @@ class RLScheduler:
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
-        self.actions = list(range(len(processes)))
 
-    def get_state(self, time, remaining):
-        # State is current time and tuple of remaining burst times
-        return (time, tuple(remaining))
+    def get_state(self, time, ready_processes):
+        # State = current time + tuple of (pid, burst, priority) for ready processes
+        state_repr = tuple((p.pid, p.burst, p.priority) for p in ready_processes)
+        return (time, state_repr)
 
-    def choose_action(self, state):
+    def choose_action(self, state, ready_indexes):
         if state not in self.q_table:
-            self.q_table[state] = np.zeros(len(self.actions))
+            self.q_table[state] = np.zeros(len(ready_indexes))
 
         if random.random() < self.epsilon:
-            return random.choice(self.actions)
+            return random.choice(range(len(ready_indexes)))
         else:
             return int(np.argmax(self.q_table[state]))
 
     def train(self):
         for ep in range(self.episodes):
-            # Create a fresh copy of processes for this episode
             processes = [p.copy() for p in self.original_processes]
             time = 0
-            remaining = [p.remaining for p in processes]
             done = [False for _ in processes]
 
             while not all(done):
-                state = self.get_state(time, remaining)
-                action = self.choose_action(state)
+                # Build the ready queue
+                ready = [p for i, p in enumerate(processes) if not done[i] and p.arrival <= time]
+                ready_indexes = [i for i, p in enumerate(processes) if not done[i] and p.arrival <= time]
 
-                if done[action] or processes[action].arrival > time:
+                if not ready:
                     time += 1
                     continue
 
-                duration = remaining[action]
-                reward = -duration
-                remaining[action] = 0
-                done[action] = True
+                state = self.get_state(time, ready)
+                action_index = self.choose_action(state, ready_indexes)
+                chosen_proc_idx = ready_indexes[action_index]
+                p = processes[chosen_proc_idx]
+
+                waiting_time = time - p.arrival
+                reward = -waiting_time  # Encourage shorter waiting time
+
+                duration = p.burst
                 time += duration
+                done[chosen_proc_idx] = True
 
-                next_state = self.get_state(time, remaining)
+                next_ready = [p for i, p in enumerate(processes) if not done[i] and p.arrival <= time]
+                next_state = self.get_state(time, next_ready)
+
                 if next_state not in self.q_table:
-                    self.q_table[next_state] = np.zeros(len(self.actions))
+                    self.q_table[next_state] = np.zeros(len(next_ready)) if next_ready else [0]
 
-                self.q_table[state][action] += self.alpha * (
-                    reward + self.gamma * max(self.q_table[next_state]) - self.q_table[state][action]
-                )
+                q_current = self.q_table[state][action_index]
+                q_next_max = max(self.q_table[next_state]) if next_ready else 0
+
+                self.q_table[state][action_index] += self.alpha * (reward + self.gamma * q_next_max - q_current)
 
     def schedule(self):
-        # Use a fresh copy for scheduling as well
         processes = [p.copy() for p in self.original_processes]
         time = 0
-        remaining = [p.remaining for p in processes]
         done = [False for _ in processes]
         gantt = []
 
         while not all(done):
-            state = self.get_state(time, remaining)
-            if state not in self.q_table:
-                action = random.choice(self.actions)
-            else:
-                action = int(np.argmax(self.q_table[state]))
+            ready = [p for i, p in enumerate(processes) if not done[i] and p.arrival <= time]
+            ready_indexes = [i for i, p in enumerate(processes) if not done[i] and p.arrival <= time]
 
-            if done[action] or processes[action].arrival > time:
+            if not ready:
                 time += 1
                 continue
 
-            p = processes[action]
-            if p.start is None:
-                p.start = time
-            duration = remaining[action]
-            time += duration
+            state = self.get_state(time, ready)
+            if state not in self.q_table:
+                action_index = random.choice(range(len(ready_indexes)))
+            else:
+                action_index = int(np.argmax(self.q_table[state]))
+
+            chosen_proc_idx = ready_indexes[action_index]
+            p = processes[chosen_proc_idx]
+
+            p.start = time
+            time += p.burst
             p.completion = time
-            remaining[action] = 0
-            done[action] = True
+            done[chosen_proc_idx] = True
             gantt.append((p.pid, p.start, p.completion))
 
         return processes, gantt

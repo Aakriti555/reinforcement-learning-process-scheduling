@@ -1,4 +1,4 @@
-def round_robin(processes, quantum=2):
+def round_robin(processes, quantum=6):
     queue = []
     time = 0
     gantt = []
