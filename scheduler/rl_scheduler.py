@@ -19,32 +19,32 @@ class RLScheduler:
         if state not in self.q_table:
             self.q_table[state] = np.zeros(len(ready_indexes))
 
-        if random.random() < self.epsilon:
+        if random.random() < self.epsilon:       #exploration
             return random.choice(range(len(ready_indexes)))
         else:
-            return int(np.argmax(self.q_table[state]))
+            return int(np.argmax(self.q_table[state])) #exploitation
 
     def train(self):
         for ep in range(self.episodes):
-            processes = [p.copy() for p in self.original_processes]
+            processes = [p.copy() for p in self.original_processes] # copy original process list to avoid modifying real one
             time = 0
-            done = [False for _ in processes]
+            done = [False for _ in processes] # Keep track of finished process 
 
             while not all(done):
                 # Build the ready queue
-                ready = [p for i, p in enumerate(processes) if not done[i] and p.arrival <= time]
+                ready = [p for i, p in enumerate(processes) if not done[i] and p.arrival <= time] # select ready process
                 ready_indexes = [i for i, p in enumerate(processes) if not done[i] and p.arrival <= time]
 
                 if not ready:
                     time += 1
                     continue
 
-                state = self.get_state(time, ready)
-                action_index = self.choose_action(state, ready_indexes)
+                state = self.get_state(time, ready)  # get the current state 
+                action_index = self.choose_action(state, ready_indexes) 
                 chosen_proc_idx = ready_indexes[action_index]
                 p = processes[chosen_proc_idx]
 
-                waiting_time = time - p.arrival
+                waiting_time = time - p.arrival   # waiting time calculation
                 reward = -waiting_time  # Encourage shorter waiting time
 
                 duration = p.burst
@@ -59,6 +59,8 @@ class RLScheduler:
 
                 q_current = self.q_table[state][action_index]
                 q_next_max = max(self.q_table[next_state]) if next_ready else 0
+                
+                # Q(s, a) ← Q(s, a) + α [r + γ max_a' Q(s', a') - Q(s, a)]
 
                 self.q_table[state][action_index] += self.alpha * (reward + self.gamma * q_next_max - q_current)
 
@@ -85,6 +87,8 @@ class RLScheduler:
             chosen_proc_idx = ready_indexes[action_index]
             p = processes[chosen_proc_idx]
 
+            # update process object with start and completion times
+            
             p.start = time
             time += p.burst
             p.completion = time

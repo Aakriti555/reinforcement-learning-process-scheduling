@@ -52,7 +52,7 @@ def run_algorithm(algorithm, processes, quantum=6):
         return round_robin(processes, quantum=quantum)
     elif algorithm == "Priority":
         return priority_scheduling(processes)
-    elif algorithm == "Reinforcement Learning":
+    elif algorithm == "RL":
         rl = RLScheduler(processes)
         rl.train()
         return rl.schedule()
@@ -95,16 +95,16 @@ else:
         input_data.append({'pid': i+1, 'arrival': arrival, 'burst': burst, 'priority': priority})
     df = pd.DataFrame(input_data)
 
-algorithm_options = ["FCFS", "SJF", "Round Robin", "Priority", "Reinforcement Learning"]
+algorithm_options = ["FCFS", "SJF", "Round Robin", "Priority", "RL"]
 mode = st.radio("Choose Simulation Mode", ["Single Algorithm", "Compare All Algorithms"])
 
 if df is not None and not df.empty:
     processes = parse_process_df(df)
     if mode == "Single Algorithm":
         selected_algo = st.selectbox("Select Scheduling Algorithm", algorithm_options)
-        quantum = 2
+        quantum = 6
         if selected_algo == "Round Robin":
-            quantum = st.slider("Quantum Time", 1, 10, 2)
+            quantum = st.slider("Quantum Time", 1, 10, 6)
         scheduled, gantt = run_algorithm(selected_algo, processes, quantum)
         avg_tat, avg_wt = display_metrics_table(scheduled)
         st.write(f"**{selected_algo} - Average Turnaround Time:** {avg_tat:.2f}")
