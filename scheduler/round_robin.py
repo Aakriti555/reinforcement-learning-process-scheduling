@@ -1,40 +1,49 @@
 def round_robin(processes, quantum=6):
-    queue = []
+    from collections import deque
+
+    # Step 1: Initialize process properties
+    for p in processes:
+        p.remaining = p.burst
+        p.start = None
+        p.completion = None
+
     time = 0
+    queue = deque()
     gantt = []
     completed = []
+    i = 0  # index for arriving processes
     processes.sort(key=lambda p: p.arrival)
-    i = 0
 
     while len(completed) < len(processes):
-        # Add arrived processes to the queue
+        # Step 2: Add all processes that have arrived by current time
         while i < len(processes) and processes[i].arrival <= time:
             queue.append(processes[i])
             i += 1
 
         if not queue:
-            # CPU is idle
+            # CPU is idle, advance time
             time += 1
             continue
 
-        current = queue.pop(0)
+        current = queue.popleft()
 
+        # Record start time only once
         if current.start is None:
-            current.start = time  # Set start time only once
+            current.start = time
 
-        run_time = min(quantum, current.remaining)
+        run_time = min(current.remaining, quantum)
         gantt.append((current.pid, time, time + run_time))
 
         time += run_time
         current.remaining -= run_time
 
-        # Check for newly arrived processes during this quantum
+        # Add any newly arrived processes during run time
         while i < len(processes) and processes[i].arrival <= time:
             queue.append(processes[i])
             i += 1
 
         if current.remaining > 0:
-            queue.append(current)  # Put back in the queue
+            queue.append(current)
         else:
             current.completion = time
             completed.append(current)
